@@ -5,11 +5,11 @@ use uc_app::icon_art::{self, Art};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IconKind {
-    /// The Compose key is on, or the keyboard is connected: a green disc.
+    /// The Compose key is on, or the keyboard is connected: a green keycap.
     Active,
-    /// Nothing active: a grey ring.
+    /// Nothing active: a grey keycap.
     Waiting,
-    /// Paused: an amber disc with a pause sign.
+    /// Paused: an amber keycap with a pause sign.
     Paused,
 }
 

@@ -664,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn waiting_without_compose_shows_the_target_and_a_grey_ring() {
+    fn waiting_without_compose_shows_the_target_and_a_grey_key() {
         let view = show(&state(false, Link::Waiting, ComposeState::None));
         assert_eq!(view.icon, IconKind::Waiting);
         assert_eq!(view.status, "Waiting for mathpad (1209:2211)");

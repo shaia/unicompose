@@ -123,11 +123,12 @@ file alone until you save from the Settings window.
 
 ## Tray app
 
-`unicompose-tray.exe` runs the Compose key and the Raw HID typing, and shows a tray icon:
+`unicompose-tray.exe` runs the Compose key and the Raw HID typing, and shows a tray icon, a keyboard key marked with the Compose
+diamond:
 
-- **Green disc:** the Compose key is on, or the keyboard is connected and typing.
-- **Grey ring:** nothing is active (no Compose key, and the keyboard is unplugged or not found).
-- **Amber disc with a pause sign:** paused. Keys pass untouched and Raw HID symbols are dropped.
+- **Green key:** the Compose key is on, or the keyboard is connected and typing.
+- **Grey key:** nothing is active (no Compose key, and the keyboard is unplugged or not found).
+- **Amber key with a pause sign:** paused. Keys pass untouched and Raw HID symbols are dropped.
 
 Left-click the icon to pause or resume. The right-click menu shows the keyboard's status. It also offers:
 - **Compose key** (on or off for now; the Settings window changes it for good);

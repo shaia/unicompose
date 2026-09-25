@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The tray and program icon is now a keyboard key with the white Compose diamond, easier to pick out in
+  the tray than the plain coloured disc. The key is green, grey or amber (with a pause sign) as before.
+
 ## [1.0.0] - 2026-09-25
 
 The first release, for Windows 10 and 11 on x64 and ARM64.
