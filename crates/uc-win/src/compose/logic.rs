@@ -513,7 +513,7 @@ mod tests {
     fn hex_entry_through_the_hook() {
         let mut p = processor("");
         let mut events = tap_compose();
-        for vk in [b'U', b'2', b'1', b'9', b'2'] {
+        for &vk in b"U2192" {
             events.extend(press(vk as VIRTUAL_KEY));
         }
         events.extend(press(VK_RETURN));
