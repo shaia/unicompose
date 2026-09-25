@@ -1,0 +1,5 @@
+# Text stays LF everywhere: rule files are compiled in with include_str!, and CI
+# checks formatting on every OS.
+* text=auto eol=lf
+*.png binary
+*.ico binary

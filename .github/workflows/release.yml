@@ -1,0 +1,168 @@
+name: Release
+
+# Pushing a tag such as v1.0.0 builds, signs and publishes a release.
+#
+# Signing uses Azure Trusted Signing. It needs these repository settings:
+#   secrets    AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+#              (an app registration with the "Trusted Signing Certificate Profile Signer" role)
+#   variables  TRUSTED_SIGNING_ENDPOINT   e.g. https://weu.codesigning.azure.net/
+#              TRUSTED_SIGNING_ACCOUNT    the Trusted Signing account name
+#              TRUSTED_SIGNING_PROFILE    the certificate profile name
+#              MSIX_PUBLISHER             the certificate's subject, exactly, e.g. "CN=..., O=..., C=..."
+# The release fails rather than publish unsigned files if any is missing.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { arch: x64, target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { arch: arm64, target: aarch64-pc-windows-msvc, os: windows-11-arm }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches VERSION and signing is configured
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TRUSTED_SIGNING_ENDPOINT: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          TRUSTED_SIGNING_ACCOUNT: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          TRUSTED_SIGNING_PROFILE: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+        run: |
+          test "v$(tr -d '[:space:]' < VERSION)" = "$GITHUB_REF_NAME" || { echo "::error::tag $GITHUB_REF_NAME does not match VERSION"; exit 1; }
+          for name in AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET TRUSTED_SIGNING_ENDPOINT \
+                      TRUSTED_SIGNING_ACCOUNT TRUSTED_SIGNING_PROFILE MSIX_PUBLISHER; do
+            test -n "${!name}" || { echo "::error::$name is not set; see the top of release.yml"; exit 1; }
+          done
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Install WiX 5
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
+
+      - run: cargo build --release --locked -p uc-app --target ${{ matrix.target }}
+
+      - name: Sign the programs
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          files-folder: target/${{ matrix.target }}/release
+          files-folder-filter: exe
+          files-folder-depth: 1
+          description: unicompose
+          description-url: https://github.com/${{ github.repository }}
+
+      - name: Package
+        run: cargo xtask package --target ${{ matrix.target }} --bins target/${{ matrix.target }}/release --publisher "${{ vars.MSIX_PUBLISHER }}"
+
+      - name: Sign the MSI
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          files-folder: target/dist
+          files-folder-filter: msi
+          files-folder-depth: 1
+          description: unicompose
+          description-url: https://github.com/${{ github.repository }}
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: dist-${{ matrix.arch }}
+          path: |
+            target/dist/*.zip
+            target/dist/*.msi
+            target/dist/*.msix
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: dist-*
+          path: target/dist
+          merge-multiple: true
+
+      - name: Bundle the MSIX packages
+        run: cargo xtask bundle
+
+      - name: Sign the MSIX bundle
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ vars.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.TRUSTED_SIGNING_PROFILE }}
+          files-folder: target/dist
+          files-folder-filter: msixbundle
+          files-folder-depth: 1
+
+      - name: Checksums and winget manifests
+        shell: bash
+        run: |
+          cargo xtask checksums
+          cargo xtask winget --url-base "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+
+      - name: Release notes from the changelog
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > target/notes.md
+          test -s target/notes.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd target/dist
+          gh release create "$GITHUB_REF_NAME" --title "unicompose ${GITHUB_REF_NAME#v}" \
+            --notes-file ../notes.md *.zip *.msi *.msixbundle SHA256SUMS
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: winget-manifests
+          path: target/dist/winget

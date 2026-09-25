@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  unicompose's MSIX manifest. `cargo xtask package` fills in {version}, {arch} and
+  {publisher}; the publisher must equal the subject of the certificate that signs the
+  package, exactly.
+
+  A full-trust desktop app: the keyboard hook needs it. It starts at login through the
+  startup task below, which Windows lists under Settings > Apps > Startup, and
+  `unicompose.exe` is on the PATH through an execution alias.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 desktop rescap">
+
+  <Identity Name="shaia.unicompose" Publisher="{publisher}" Version="{version}" ProcessorArchitecture="{arch}" />
+
+  <Properties>
+    <DisplayName>unicompose</DisplayName>
+    <PublisherDisplayName>shaia</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+    <Description>A Compose key for Windows, and typing for keyboards that send Unicode over Raw HID.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="unicompose" Executable="unicompose-tray.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="unicompose" Description="A Compose key for Windows"
+                          BackgroundColor="transparent"
+                          Square150x150Logo="assets\Square150x150Logo.png"
+                          Square44x44Logo="assets\Square44x44Logo.png" />
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask" Executable="unicompose-tray.exe"
+                           EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="unicompose" Enabled="true" DisplayName="unicompose" />
+        </desktop:Extension>
+        <uap3:Extension Category="windows.appExecutionAlias" Executable="unicompose.exe"
+                        EntryPoint="Windows.FullTrustApplication">
+          <uap3:AppExecutionAlias>
+            <desktop:ExecutionAlias Alias="unicompose.exe" />
+          </uap3:AppExecutionAlias>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

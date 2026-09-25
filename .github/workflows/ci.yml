@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: test (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows-x64, os: windows-latest }
+          - { name: windows-arm64, os: windows-11-arm }
+          - { name: macos, os: macos-latest }
+          - { name: linux, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Install libudev (hidapi's hidraw backend) and libxkbcommon (differential test)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev libxkbcommon0
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked
+      - run: cargo test --workspace --locked
+      # Types into a real window under several keyboard layouts, directly and through the
+      # Compose key hook; needs the runner's desktop.
+      - name: Typing harness
+        if: runner.os == 'Windows'
+        run: cargo test -p uc-win --test focused_window --test compose_hook --locked -- --ignored --test-threads=1
+      # Our XCompose parser must build the same table as libxkbcommon, which Linux uses.
+      - name: Differential test against libxkbcommon
+        if: runner.os == 'Linux'
+        run: |
+          edge="$PWD/crates/uc-xcompose/tests/data/edge-cases.Compose"
+          python3 tools/xkbcommon_dump.py crates/uc-xcompose/data/en_US.UTF-8.Compose > "$RUNNER_TEMP/bundled.dump"
+          python3 tools/xkbcommon_dump.py "$edge" > "$RUNNER_TEMP/edge.dump"
+          UC_XKBCOMMON_DUMP="$RUNNER_TEMP/bundled.dump" cargo test -p uc-xcompose --test differential --locked -- --ignored
+          UC_XKBCOMMON_DUMP="$RUNNER_TEMP/edge.dump" UC_COMPOSE_FILE="$edge" cargo test -p uc-xcompose --test differential --locked -- --ignored
+
+  msrv:
+    # Windows compiles the most code: uc-win is empty elsewhere.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets --locked

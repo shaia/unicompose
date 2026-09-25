@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "xtask"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/shaia/unicompose"
+
+[workspace.dependencies]
+uc-codec = { path = "crates/uc-codec" }
+uc-config = { path = "crates/uc-config" }
+uc-platform = { path = "crates/uc-platform" }
+uc-engine = { path = "crates/uc-engine" }
+uc-hid = { path = "crates/uc-hid" }
+uc-keysym = { path = "crates/uc-keysym" }
+uc-win = { path = "crates/uc-win" }
+uc-xcompose = { path = "crates/uc-xcompose" }
+
+clap = { version = "4.6", features = ["derive"] }
+ctrlc = "3.5"
+hidapi = "2.6"
+proptest = "1.11"
+serde = { version = "1", features = ["derive"] }
+toml = "1.1"
+tracing = "0.1"
+tracing-appender = "0.2"
+winresource = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# 0.25 needs Rust 1.90; the workspace MSRV is 1.85.
+tray-icon = "0.24"
+windows-sys = "0.61"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "warn"

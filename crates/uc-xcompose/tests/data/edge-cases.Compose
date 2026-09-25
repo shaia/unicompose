@@ -1,0 +1,35 @@
+# Edge cases for the differential test: every conflict rule, escape and name form.
+
+# Same keys: the later rule wins; an identical one is a duplicate.
+<Multi_key> <a> <a>		: "first"
+<Multi_key> <a> <a>		: "second"
+<Multi_key> <a> <a>		: "second"
+
+# Override with only a keysym keeps the earlier string.
+<Multi_key> <e> <e>		: "é"	eacute
+<Multi_key> <e> <e>		: egrave
+
+# A longer rule replaces its prefix; a prefix of existing rules is skipped.
+<Multi_key> <b>			: "short"
+<Multi_key> <b> <c>		: "long"
+<Multi_key> <b>			: "short again"
+
+# Escapes: quote, backslash, hex, octal (UTF-8 bytes), unknown, illegal.
+<Multi_key> <q> <1>		: "\"\\"
+<Multi_key> <q> <2>		: "\x41\101"
+<Multi_key> <q> <3>		: "\316\261"
+<Multi_key> <q> <4>		: "\q\x\0"
+
+# Name forms: Unicode, hex, Latin-1 through U, and odd spacing.
+<Multi_key> <U2192> <U1D538>	: "𝔸"
+<Multi_key> <0x61> <0xff20>	: "hex"
+<Multi_key> <U00e9>:"tight"	U2192
+
+# Modifiers are parsed and ignored.
+!Ctrl ~Shift <Multi_key> None <m>	: "mods"
+
+# Bad lines are skipped.
+<Multi_key> <nosuchkeysym>	: "x"
+<Multi_key> <z>			:
+<Multi_key> <z> <z>		: "one" "two"
+<Multi_key> <z> <y>		: "x" nosuchkeysym

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  unicompose's MSI, built by `cargo xtask package` with WiX 5:
+    wix build unicompose.wxs -arch x64 -ext WixToolset.Util.wixext
+      -d Version=1.0.0 -d Bins=<folder with both exes> -d Assets=<packaging/assets> -d Docs=<repo root>
+
+  Per-machine, into Program Files\unicompose, with a Start menu shortcut. Installing a
+  newer version replaces the older one. The app is started after installing unless
+  LAUNCHAPP=0. Uninstalling stops it and removes its login entries.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="unicompose" Manufacturer="shaia" Version="$(Version)" Scope="perMachine"
+           UpgradeCode="6B0C5B1E-3D1A-4E7B-9C2F-8A1D4E5F6071" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of unicompose is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="unicompose.ico" SourceFile="$(Assets)\unicompose.ico" />
+    <Property Id="ARPPRODUCTICON" Value="unicompose.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/shaia/unicompose" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/shaia/unicompose#readme" />
+    <Property Id="LAUNCHAPP" Value="1" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="unicompose">
+        <Component Id="Tray">
+          <File Id="TrayExe" Source="$(Bins)\unicompose-tray.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="Cli">
+          <File Id="CliExe" Source="$(Bins)\unicompose.exe" KeyPath="yes" />
+        </Component>
+        <!-- One unversioned file per component, so each gets a stable generated GUID. -->
+        <Component Id="License">
+          <File Source="$(Docs)\LICENSE" Name="LICENSE.txt" />
+        </Component>
+        <Component Id="Readme">
+          <File Source="$(Docs)\README.md" />
+        </Component>
+        <Component Id="LicenseLibX11">
+          <File Source="$(Docs)\crates\uc-xcompose\data\COPYING.libX11" Name="COPYING.libX11.txt" />
+        </Component>
+        <Component Id="LicenseWinCompose">
+          <File Source="$(Docs)\crates\uc-xcompose\data\wincompose\COPYING" Name="COPYING.WinCompose.txt" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- The shortcut has its own component, keyed on a registry value of the installing
+         user, as Windows Installer's validation (ICE38, ICE43, ICE57) asks of shortcuts. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenu" Name="unicompose" Description="A Compose key for Windows"
+                  Target="[INSTALLFOLDER]unicompose-tray.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\shaia\unicompose" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="unicompose">
+      <ComponentRef Id="Tray" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="Cli" />
+      <ComponentRef Id="License" />
+      <ComponentRef Id="Readme" />
+      <ComponentRef Id="LicenseLibX11" />
+      <ComponentRef Id="LicenseWinCompose" />
+    </Feature>
+
+    <!-- Stop a running tray before files are replaced or removed. -->
+    <util:CloseApplication Id="CloseTray" Target="unicompose-tray.exe" TerminateProcess="0" RebootPrompt="no" />
+
+    <!--
+      On uninstall (not an upgrade), remove the login entries the app created: the Run
+      value belongs to the user, so that runs as the user; the logon task needs
+      administrator rights, so that runs as the installer. Failures are ignored: there
+      may be nothing to remove.
+    -->
+    <SetProperty Id="RemoveRunEntry" Sequence="execute" Before="RemoveRunEntry"
+                 Value="&quot;[System64Folder]reg.exe&quot; delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v unicompose /f" />
+    <CustomAction Id="RemoveRunEntry" DllEntry="WixQuietExec" Execute="deferred" Impersonate="yes" Return="ignore"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
+    <SetProperty Id="RemoveLogonTask" Sequence="execute" Before="RemoveLogonTask"
+                 Value="&quot;[System64Folder]schtasks.exe&quot; /Delete /TN unicompose /F" />
+    <CustomAction Id="RemoveLogonTask" DllEntry="WixQuietExec" Execute="deferred" Impersonate="no" Return="ignore"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
+
+    <!-- Start the app for the user who installed it. -->
+    <CustomAction Id="LaunchTray" FileRef="TrayExe" ExeCommand="" Return="asyncNoWait" Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveRunEntry" Before="RemoveFiles"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveLogonTask" Before="RemoveFiles"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="LaunchTray" After="InstallFinalize"
+              Condition="LAUNCHAPP=1 AND NOT REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

@@ -1,0 +1,42 @@
+[package]
+name = "uc-app"
+description = "unicompose: Compose key and Raw HID Unicode bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "uc_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "unicompose"
+path = "src/main.rs"
+
+[[bin]]
+name = "unicompose-tray"
+path = "src/bin/unicompose-tray/main.rs"
+
+[dependencies]
+clap.workspace = true
+ctrlc.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+uc-engine.workspace = true
+uc-hid.workspace = true
+uc-codec.workspace = true
+uc-config.workspace = true
+uc-platform.workspace = true
+uc-xcompose.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+tray-icon.workspace = true
+uc-win.workspace = true
+
+[build-dependencies]
+winresource.workspace = true
+
+[lints]
+workspace = true

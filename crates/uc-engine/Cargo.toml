@@ -1,0 +1,17 @@
+[package]
+name = "uc-engine"
+description = "Compose-key state machine: sequences, hex entry and ambiguous-sequence timeouts, without IO"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+uc-keysym.workspace = true
+uc-xcompose.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

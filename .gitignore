@@ -1,0 +1,15 @@
+# Build output. Cargo.lock stays tracked: this workspace ships a binary.
+/target
+
+# Raw HID captures from `unicompose --record`
+*.rec
+
+# rustfmt backups
+**/*.rs.bk
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

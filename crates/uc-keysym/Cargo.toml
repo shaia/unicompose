@@ -1,0 +1,13 @@
+[package]
+name = "uc-keysym"
+description = "X11 keysym names, values and their Unicode characters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true
